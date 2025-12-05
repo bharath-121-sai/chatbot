@@ -1,0 +1,250 @@
+[
+  {
+    "role": "user",
+    "content": "what is the name of my mentees"
+  },
+  {
+    "role": "assistant",
+    "content": "John Doe \u2014 Roll: 23881A66K1, Batch: 2024, Sem: 1\n\nJane Smith \u2014 Roll: 23881A66J2, Batch: 2024, Sem: 1\n\nBob Brown \u2014 Roll: 23881A6617, Batch: 2024, Sem: 1\n\nAlice Johnson \u2014 Roll: 23881A66F5, Batch: 2024, Sem: 1"
+  },
+  {
+    "role": "user",
+    "content": "what are the certifactes of my mentees"
+  },
+  {
+    "role": "assistant",
+    "content": "John Doe \u2014 Roll: 23881A66K1, Batch: 2024, Sem: 1\n\nJane Smith \u2014 Roll: 23881A66J2, Batch: 2024, Sem: 1\n\nBob Brown \u2014 Roll: 23881A6617, Batch: 2024, Sem: 1\n\nAlice Johnson \u2014 Roll: 23881A66F5, Batch: 2024, Sem: 1"
+  },
+  {
+    "role": "user",
+    "content": "what are the certifactes having for 23881A66K1"
+  },
+  {
+    "role": "assistant",
+    "content": "No student found."
+  },
+  {
+    "role": "user",
+    "content": "what are teh certifactes of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "No student found."
+  },
+  {
+    "role": "user",
+    "content": "what are the certifactes having for 23881A66F5\\"
+  },
+  {
+    "role": "assistant",
+    "content": "No student found."
+  },
+  {
+    "role": "user",
+    "content": "what is the count of my mentees"
+  },
+  {
+    "role": "assistant",
+    "content": "John Doe \u2014 Roll: 23881A66K1, Batch: 2024, Sem: 1\n\nJane Smith \u2014 Roll: 23881A66J2, Batch: 2024, Sem: 1\n\nBob Brown \u2014 Roll: 23881A6617, Batch: 2024, Sem: 1\n\nAlice Johnson \u2014 Roll: 23881A66F5, Batch: 2024, Sem: 1"
+  },
+  {
+    "role": "user",
+    "content": "who is topper"
+  },
+  {
+    "role": "assistant",
+    "content": "No student found."
+  },
+  {
+    "role": "user",
+    "content": "what are the certificates of 23881A66F5\n"
+  },
+  {
+    "role": "user",
+    "content": "what are the certificates of 23881A66F5"
+  },
+  {
+    "role": "user",
+    "content": "what are the certificates of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "AI error: 400 API key not valid. Please pass a valid API key. [reason: \"API_KEY_INVALID\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"generativelanguage.googleapis.com\"\n}\n, locale: \"en-US\"\nmessage: \"API key not valid. Please pass a valid API key.\"\n]"
+  },
+  {
+    "role": "user",
+    "content": "what are the certificates of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "AI error: 400 API key not valid. Please pass a valid API key. [reason: \"API_KEY_INVALID\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"generativelanguage.googleapis.com\"\n}\n, locale: \"en-US\"\nmessage: \"API key not valid. Please pass a valid API key.\"\n]"
+  },
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "what are the certificates of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "AI error: 400 API key not valid. Please pass a valid API key. [reason: \"API_KEY_INVALID\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"generativelanguage.googleapis.com\"\n}\n, locale: \"en-US\"\nmessage: \"API key not valid. Please pass a valid API key.\"\n]"
+  },
+  {
+    "role": "user",
+    "content": "what are the certificates of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "AI error: 400 API key not valid. Please pass a valid API key. [reason: \"API_KEY_INVALID\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"generativelanguage.googleapis.com\"\n}\n, locale: \"en-US\"\nmessage: \"API key not valid. Please pass a valid API key.\"\n]"
+  },
+  {
+    "role": "user",
+    "content": "what are the certificates of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "The certificates of student with roll number 23881A66F5 are: Django Certificate (PENDING), Django Certificate (PENDING), Django Certificate (PENDING), Python Django (PENDING), python certificate (PENDING), and Django Certification (AI_VERIFIED).\n"
+  },
+  {
+    "role": "user",
+    "content": "what is the name of  23881A66F5 "
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "what are the certifactes of 23881A66F5 "
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "what are the certificates of 23881A66F5\n\n"
+  },
+  {
+    "role": "assistant",
+    "content": "23881A66F5 has these certificates: Django Certificate (PENDING), Python Django (PENDING), python certificate (PENDING), Django Certification (AI_VERIFIED).\n"
+  },
+  {
+    "role": "user",
+    "content": "what is the batch of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "what is the batch of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "profile of  23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "profile of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "who has highest score"
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "who has highest score"
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "what is the name of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "what is the name of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I can answer only profile & certificate related questions now."
+  },
+  {
+    "role": "user",
+    "content": "what is the name of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: name, activity score, certificates, count, mentees."
+  },
+  {
+    "role": "user",
+    "content": "what is the name of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: name, activity score, certificates, count, mentees."
+  },
+  {
+    "role": "user",
+    "content": "how many menties are under me"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: name, activity score, certificates, certificate count, mentees."
+  },
+  {
+    "role": "user",
+    "content": "what is the name of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: name, activity score, certificates, certificate count, mentees."
+  },
+  {
+    "role": "user",
+    "content": "what is the name of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: name, activity score, certificates, certificate count, mentees."
+  },
+  {
+    "role": "user",
+    "content": "what are the certificates of 23881A66F5\n"
+  },
+  {
+    "role": "assistant",
+    "content": "The certificates of 23881A66F5 are: Django Certificate (PENDING), Django Certificate (PENDING), Django Certificate (PENDING), Python Django (PENDING), python certificate (PENDING), and Django Certification (AI_VERIFIED).\n"
+  }
+]

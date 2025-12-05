@@ -1,0 +1,50 @@
+[
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello! \ud83d\udc4b How can I help you today?"
+  },
+  {
+    "role": "user",
+    "content": "how many students under my mentee"
+  },
+  {
+    "role": "assistant",
+    "content": "You have 4 mentees."
+  },
+  {
+    "role": "user",
+    "content": "how many certifactes have 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "Alice has 6 certificates."
+  },
+  {
+    "role": "user",
+    "content": "what are they"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: name, activity score, certificates, certificate count, mentees, mentee count. (LLM fallback failed.)"
+  },
+  {
+    "role": "user",
+    "content": "what are the certifactes for F5"
+  },
+  {
+    "role": "assistant",
+    "content": "No student found."
+  },
+  {
+    "role": "user",
+    "content": "what are certificates names of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "Certificates: Django Certificate, Django Certificate, Django Certificate, Python Django, python certificate, Django Certification\n\nGuidance:\n- Encourage internships and project-based portfolio."
+  }
+]
