@@ -1,10 +1,82 @@
 [
   {
     "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello! \ud83d\udc4b How can I help you with your mentees today?"
+  },
+  {
+    "role": "user",
+    "content": "how many mentees\n"
+  },
+  {
+    "role": "assistant",
+    "content": "John Doe \u2014 Roll: 23881A66K1\n\nJane Smith \u2014 Roll: 23881A66J2\n\nBob Brown \u2014 Roll: 23881A6617\n\nAlice Johnson \u2014 Roll: 23881A66F5"
+  },
+  {
+    "role": "user",
     "content": "profile of 23881A66F5\n"
   },
   {
     "role": "assistant",
-    "content": "\ud83d\udccc STUDENT PROFILE\n----------------------------------------\nName         : Alice Johnson\nRoll Number  : 23881A66F5\nBatch        : 2024\nSemester     : 1\nDepartment   : Mechanical Engineering\nMentor       : Dr.Isaac Newton \u2014 faculty4@example.com\nActivity     : Not available\nCertificates : 25\n\nCertificates (top 50):\n- NPTEL C programming [PENDING] (2025-12-06 14:37:45)\n- Coursera [PENDING] (2025-12-06 10:23:35)\n- bharath sai [PENDING] (2025-12-06 10:21:11)\n- DSA in python [PENDING] (2025-12-05 22:59:45)\n- DSA in python [PENDING] (2025-12-05 22:47:36)\n- nptel test [PENDING] (2025-12-05 22:36:58)\n- nptel test [PENDING] (2025-12-05 22:33:05)\n- New Scraping check [PENDING] (2025-12-05 22:32:31)\n- New Scraping check [PENDING] (2025-12-05 22:18:10)\n- NPTEL main [PENDING] (2025-12-05 21:49:50)\n- test NPTEL [PENDING] (2025-12-05 21:42:09)\n- test 2 [PENDING] (2025-12-05 21:05:43)\n- test [PENDING] (2025-12-05 21:00:57)\n- test [PENDING] (2025-12-05 20:55:29)\n- test [PENDING] (2025-12-05 20:52:09)\n- test [PENDING] (2025-12-05 20:46:11)\n- test [PENDING] (2025-12-05 20:43:57)\n- test certificate verifcation [PENDING] (2025-12-05 19:34:21)\n- Anvesh Certificate [PENDING] (2025-12-05 18:17:00)\n- Django Certificate [PENDING] (2025-12-05 09:01:52)\n- Django Certificate [PENDING] (2025-12-05 08:32:36)\n- Django Certificate [PENDING] (2025-12-05 08:31:50)\n- Python Django [PENDING] (2025-12-05 08:29:45)\n- Django Certification [AI_VERIFIED] (2025-12-02 08:12:09)\n- python certificate [PENDING] (2025-12-02 08:12:09)"
+    "content": "\ud83d\udccc STUDENT PROFILE\n------------------------------------\nName        : Alice Johnson\nRoll Number : 23881A66F5\nBatch       : 2024\nSemester    : 1\nDepartment  : Mechanical Engineering\nMentor      : Mentor ID 5\nActivity    : Not available\nCertificates: 25\n\nCertificates (top 50):\n- NPTEL C programming [PENDING] () - 2025-12-06 14:37:45\n- Coursera [PENDING] () - 2025-12-06 10:23:35\n- bharath sai [PENDING] () - 2025-12-06 10:21:11\n- DSA in python [PENDING] () - 2025-12-05 22:59:45\n- DSA in python [PENDING] () - 2025-12-05 22:47:36\n- nptel test [PENDING] () - 2025-12-05 22:36:58\n- nptel test [PENDING] () - 2025-12-05 22:33:05\n- New Scraping check [PENDING] () - 2025-12-05 22:32:31\n- New Scraping check [PENDING] () - 2025-12-05 22:18:10\n- NPTEL main [PENDING] () - 2025-12-05 21:49:50\n- test NPTEL [PENDING] () - 2025-12-05 21:42:09\n- test 2 [PENDING] () - 2025-12-05 21:05:43\n- test [PENDING] () - 2025-12-05 21:00:57\n- test [PENDING] () - 2025-12-05 20:55:29\n- test [PENDING] () - 2025-12-05 20:52:09\n- test [PENDING] () - 2025-12-05 20:46:11\n- test [PENDING] () - 2025-12-05 20:43:57\n- test certificate verifcation [PENDING] () - 2025-12-05 19:34:21\n- Anvesh Certificate [PENDING] () - 2025-12-05 18:17:00\n- Django Certificate [PENDING] () - 2025-12-05 09:01:52\n- Django Certificate [PENDING] () - 2025-12-05 08:32:36\n- Django Certificate [PENDING] () - 2025-12-05 08:31:50\n- Python Django [PENDING] () - 2025-12-05 08:29:45\n- Django Certification [AI_VERIFIED] (Coursera) - 2025-12-02 08:12:09\n- python certificate [PENDING] () - 2025-12-02 08:12:09"
+  },
+  {
+    "role": "user",
+    "content": "certificates of 23881A66F5\n"
+  },
+  {
+    "role": "assistant",
+    "content": "Certificates:\n- NPTEL C programming\n- Coursera\n- bharath sai\n- DSA in python\n- DSA in python\n- nptel test\n- nptel test\n- New Scraping check\n- New Scraping check\n- NPTEL main\n- test NPTEL\n- test 2\n- test\n- test\n- test\n- test\n- test\n- test certificate verifcation\n- Anvesh Certificate\n- Django Certificate\n- Django Certificate\n- Django Certificate\n- Python Django\n- Django Certification\n- python certificate"
+  },
+  {
+    "role": "user",
+    "content": "activity score of 23881A66F5\n"
+  },
+  {
+    "role": "assistant",
+    "content": "Activity score of 23881A66F5 is Not available."
+  },
+  {
+    "role": "user",
+    "content": "how many certificates does 23881A66F5 have\n"
+  },
+  {
+    "role": "assistant",
+    "content": "Alice has 25 certificates."
+  },
+  {
+    "role": "user",
+    "content": "who is topper\n"
+  },
+  {
+    "role": "assistant",
+    "content": "I found this earlier in our chat: \"who is topper\n\""
+  },
+  {
+    "role": "user",
+    "content": "k1 is topper"
+  },
+  {
+    "role": "assistant",
+    "content": "Noted: 'k1' \u2192 'topper'."
+  },
+  {
+    "role": "user",
+    "content": "who is k1"
+  },
+  {
+    "role": "assistant",
+    "content": "I found this earlier in our chat: \"topper\""
+  },
+  {
+    "role": "user",
+    "content": "who is k1"
+  },
+  {
+    "role": "assistant",
+    "content": "I found this earlier in our chat: \"topper\""
   }
 ]

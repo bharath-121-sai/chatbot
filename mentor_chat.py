@@ -1,697 +1,777 @@
-# mentor_chat.py — Dynamic Login via Django API (GET /api/me)
-# Full-featured MentorAssist — Mentor Chat (production-ready)
+# mentor_chat.py
+# MentorAssist — Mentor Chat (production-ready single-file)
 #
-# Features:
-# - Dynamic mentor login via GET /api/me (no passwords in Streamlit)
-# - Mentor sees only their mentees (enforced)
-# - Fuzzy search + partial roll support
-# - Persistent chat history per mentor (saved to ./chats/chat_<username>.json)
-# - In-session memory engine (store short facts; retrieval on later queries)
-#   * When a fact is stored the bot responds succinctly with "k." (per your request).
-#   * On subsequent queries it can retrieve stored facts.
-# - Certificates: list, count, summary (LLM optional)
-# - Activity score retrieval (reads DB field if present)
-# - Profile lookup (full cleaned profile)
-# - Robust DB error handling with helpful messages
-# - LLM guidance when AI_AVAILABLE is True in ai_core.py
-# - Exports: chat JSON download, CSV export of query results
-# - Pagination for long lists (mentees / students)
+# Save as mentor_chat.py and run:
+#    streamlit run mentor_chat.py
 #
-# Requirements:
-# - shared_utils.py providing: parse_intent, fuzzy_best_candidate, load_chat_history_for, save_chat_history_for, chat_file_for_user
-# - db_utils.py providing: find_students_by_query, get_mentees, get_certificates_for_student, count_certificates, get_student_by_id, get_department_by_id, get_conn
-# - ai_core.py providing: call_gemini_short, AI_AVAILABLE
-# - requests (for GET /api/me)
+# Dependencies (same as in your project):
+#  - streamlit
+#  - rapidfuzz (for fuzzy)
+#  - shared_utils.py (must export parse_intent, fuzzy_best_candidate, load_chat_history_for, save_chat_history_for, chat_file_for_user)
+#  - db_utils.py (exports used DB helpers; app gracefully falls back to sample data if DB unavailable)
+#  - ai_core.py (exports call_gemini_short, AI_AVAILABLE) - optional
 #
-# How it works:
-# - The Streamlit app attempts to call GET {BASE_API_URL}/api/me using optional cookies
-#   (you can configure BASE_API_URL via env var MENTORASSIST_BASE_API or edit below).
-# - If the API responds with {"username": "...", "mentor_id": ...} the mentor is considered logged in.
-# - If the API call fails or the endpoint is not present, the UI shows a fallback "Simulated login" option.
-#
-# Usage:
-#   STREAMLIT:
-#     streamlit run mentor_chat.py
-#
-# Notes:
-# - This is a single-file implementation for easy deployment and testing.
-# - You can adapt authentication and DB access to your environment as needed.
-# -----------------------------------------------------------------------------
+# This file intentionally includes many comments and helper functions so that you can
+# modify behavior easily. It also provides both simulated and API-based login modes.
+###############################################################################
 
-import os
-import sys
-import json
-import re
-import io
-import traceback
-from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
-import requests
 import streamlit as st
+import os
+import json
+import time
+import re
+import traceback
+from datetime import datetime
+from typing import Optional, Dict, Any, List, Tuple
 
-# Project-local utilities — make sure these modules exist in the repo
-from shared_utils import (
-    parse_intent,
-    fuzzy_best_candidate,
-    load_chat_history_for,
-    save_chat_history_for,
-    chat_file_for_user,
-)
-from db_utils import (
-    find_students_by_query,
-    get_mentees,
-    get_certificates_for_student,
-    count_certificates,
-    get_student_by_id,
-    get_department_by_id,
-    get_conn,
-)
-from ai_core import call_gemini_short, AI_AVAILABLE
+# Local project imports (your repository should provide these modules)
+# If any of these are missing, the app will run in offline/demo mode using sample data.
+try:
+    from shared_utils import (
+        parse_intent,
+        fuzzy_best_candidate,
+        load_chat_history_for,
+        save_chat_history_for,
+        chat_file_for_user,
+    )
+except Exception as e:
+    # Provide fallbacks if shared_utils missing - very small local implementations
+    def parse_intent(text: str):
+        t = (text or "").strip().lower()
+        meta = {"roll_query": None, "name_query": None, "memory_phrase": None}
+        if t in ("hi", "hello", "hey", "hii"):
+            return "greeting", meta
+        if t.startswith("who is "):
+            meta["memory_phrase"] = t[7:].strip()
+            return "memory_lookup", meta
+        if "certificate" in t or "certificates" in t:
+            if "how many" in t or "count" in t:
+                return "count_certificates", meta
+            return "certificates", meta
+        if "activity" in t and "score" in t:
+            return "activity_score", meta
+        if "mentees" in t:
+            return "mentees", meta
+        if t.startswith("profile of") or t.startswith("student profile"):
+            return "profile", meta
+        if t.startswith("find student") or t.startswith("search student"):
+            return "find_student", meta
+        # detect roll-like tokens
+        roll = re.search(r"\b[0-9]{1,}[A-Za-z0-9\-]{1,}\b", t)
+        if roll:
+            meta["roll_query"] = roll.group(0)
+        return "unknown", meta
 
-# ---------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------
-APP_TITLE = "MentorAssist — Mentor Chat (Dynamic Login via API)"
-PAGE_SIZE = 30  # pagination for lists
+    def fuzzy_best_candidate(q, candidates, key=lambda x: x, score_cutoff=60):
+        # naive fallback: return first candidate
+        if not candidates:
+            return None, 0
+        return candidates[0], 100
+
+    def chat_file_for_user(user):
+        from pathlib import Path
+        d = Path("chats")
+        d.mkdir(exist_ok=True)
+        return d / f"chat_{user['username']}.json"
+
+    def load_chat_history_for(user):
+        f = chat_file_for_user(user)
+        if f.exists():
+            try:
+                return json.loads(open(f, "r", encoding="utf-8").read())
+            except Exception:
+                return []
+        return []
+
+    def save_chat_history_for(user, messages):
+        f = chat_file_for_user(user)
+        with open(f, "w", encoding="utf-8") as fw:
+            json.dump(messages, fw, indent=2)
+
+# Try importing DB utilities — if unavailable, fall back to sample functions
+DB_AVAILABLE = True
+try:
+    from db_utils import (
+        find_students_by_query,
+        get_mentees,
+        get_certificates_for_student,
+        count_certificates,
+        get_student_by_id,
+        get_department_by_id,
+        get_conn,
+    )
+except Exception:
+    DB_AVAILABLE = False
+
+# Try importing AI core (optional)
+AI_AVAILABLE = False
+try:
+    from ai_core import call_gemini_short, AI_AVAILABLE as AI_FLAG
+    AI_AVAILABLE = bool(AI_FLAG)
+except Exception:
+    AI_AVAILABLE = False
+
+# -------------------------
+# CONFIGURATION
+# -------------------------
+# Swap these to True to make the app attempt API-based login and data access.
+USE_API = False  # If True, the app will try to call your Django endpoints (requires config below)
+# API endpoints - if you want to enable API login, set these accordingly
+API_BASE = "http://localhost:8000"  # override in-file or via environment variable
+API_AUTH_JWT_CREATE = f"{API_BASE}/auth/jwt/create/"  # expects {"username","password"} -> returns token
+API_ME = f"{API_BASE}/api/vmeg/auth/users/me/"  # GET with Authorization: Bearer <token>, returns {"username","mentor_id"}
+API_TOKEN_HEADER = "Authorization"
+
+# Admin simulated credentials (demo). Replace with your secure process in production.
+ADMIN_SIM = {"username": "kondenagaruthvik@gmail.com", "password": "Ruthvik3234L"}
+
+# Simulated mentor users for local demo (you asked for static as default + optional API)
+SIMULATED_USERS = {
+    "mentor5": {"username": "mentor5", "password": "mentor5", "mentor_id": 5, "role": "mentor"},
+    "mentor1": {"username": "mentor1", "password": "mentor1", "mentor_id": 1, "role": "mentor"},
+    "admin": {"username": "admin", "password": "admin", "mentor_id": None, "role": "admin"},
+}
+
+# UI constants
+APP_TITLE = "MentorAssist — Mentor Chat"
 CHAT_DIR = "chats"
-AUDIT_LOG = "mentor_audit.log"
-# Base API URL for GET /api/me — set MENTORASSIST_BASE_API env var if needed
-BASE_API_URL = os.environ.get("MENTORASSIST_BASE_API", "http://localhost:8000")
-
-# Create chat dir if missing
 os.makedirs(CHAT_DIR, exist_ok=True)
 
-# Streamlit page config
-st.set_page_config(page_title=APP_TITLE, layout="wide")
-st.title(APP_TITLE)
-st.caption("Dynamic login via GET /api/me (if available). Mentor sees only their mentees.")
+# Audit log (local file)
+AUDIT_LOG = "mentorassist_audit.log"
 
-# ---------------------------------------------------------------------
-# Utilities
-# ---------------------------------------------------------------------
-def audit(action: str, user: Optional[Dict[str, Any]], details: Optional[Dict[str, Any]] = None):
-    """Append an audit log entry (non-critical)."""
+# -------------------------
+# SAMPLE DATA (fallback when DB unavailable)
+# -------------------------
+# Keep sample_students fairly rich so the app behaves as if it had DB responses
+SAMPLE_STUDENTS = [
+    {
+        "id": 101,
+        "first_name": "John",
+        "last_name": "Doe",
+        "roll_number": "23881A66K1",
+        "batch_year": 2024,
+        "current_semester": 2,
+        "department_id": 2,
+        "mentor_id": 5,
+        "activity_score": 92,
+    },
+    {
+        "id": 102,
+        "first_name": "Jane",
+        "last_name": "Smith",
+        "roll_number": "23881A66J2",
+        "batch_year": 2024,
+        "current_semester": 2,
+        "department_id": 2,
+        "mentor_id": 5,
+        "activity_score": 78,
+    },
+    {
+        "id": 103,
+        "first_name": "Bob",
+        "last_name": "Brown",
+        "roll_number": "23881A6617",
+        "batch_year": 2024,
+        "current_semester": 2,
+        "department_id": 2,
+        "mentor_id": 5,
+        "activity_score": 85,
+    },
+    {
+        "id": 104,
+        "first_name": "Alice",
+        "last_name": "Johnson",
+        "roll_number": "23881A66F5",
+        "batch_year": 2024,
+        "current_semester": 2,
+        "department_id": 2,
+        "mentor_id": 5,
+        "activity_score": 95,
+    },
+]
+
+SAMPLE_CERTIFICATES = {
+    104: [
+        {"id": 1, "title": "DSA in Python", "issuing_organization": "Udemy", "status": "verified", "created_at": datetime(2024, 2, 10)},
+        {"id": 2, "title": "Django Certificate", "issuing_organization": "Coursera", "status": "verified", "created_at": datetime(2024, 3, 12)},
+        {"id": 3, "title": "NPTEL: Algorithms", "issuing_organization": "NPTEL", "status": "verified", "created_at": datetime(2023, 12, 1)},
+    ],
+    101: [
+        {"id": 21, "title": "Python Basics", "issuing_organization": "FreeCodeCamp", "status": "verified", "created_at": datetime(2022, 5, 10)},
+    ],
+    102: [],
+    103: [{"id": 31, "title": "Web Dev Bootcamp", "issuing_organization": "Udemy", "status": "verified", "created_at": datetime(2024, 1, 20)}],
+}
+
+SAMPLE_DEPARTMENTS = {
+    1: {"id": 1, "name": "Electronics & Communication"},
+    2: {"id": 2, "name": "Computer Science Engineering"},
+    3: {"id": 3, "name": "Mechanical Engineering"},
+    4: {"id": 4, "name": "Electrical Engineering"},
+    5: {"id": 5, "name": "Information Technology"},
+}
+
+# -------------------------
+# UTILITIES (DB-safe wrappers)
+# -------------------------
+def audit_log(action: str, user: Optional[Dict[str, Any]] = None, details: Optional[Dict[str, Any]] = None):
+    """Append an audit entry to the audit log file."""
+    entry = {
+        "ts": datetime.utcnow().isoformat(),
+        "user": user.get("username") if user else None,
+        "action": action,
+        "details": details or {},
+    }
     try:
-        entry = {
-            "ts": datetime.utcnow().isoformat(),
-            "action": action,
-            "user": user.get("username") if user else None,
-            "details": details or {}
-        }
         with open(AUDIT_LOG, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
     except Exception:
-        # do not crash on audit failure
+        # best-effort only
         pass
 
-def safe_db_call(fn, *args, **kwargs):
-    try:
-        return fn(*args, **kwargs), None
-    except Exception as e:
-        return None, str(e)
-
-def dicts_to_csv_bytes(dicts: List[Dict[str, Any]]) -> bytes:
-    """Convert list of dicts to CSV (UTF-8 bytes)."""
-    if not dicts:
-        return b""
-    # collect header
-    keys = sorted({k for d in dicts for k in d.keys()})
-    output = io.StringIO()
-    # write header
-    output.write(",".join(keys) + "\n")
-    for d in dicts:
-        row = []
-        for k in keys:
-            v = d.get(k, "")
-            if isinstance(v, datetime):
-                row.append(v.isoformat())
-            else:
-                # escape double quotes
-                s = str(v).replace('"', '""')
-                if "," in s or "\n" in s:
-                    s = f'"{s}"'
-                row.append(s)
-        output.write(",".join(row) + "\n")
-    return output.getvalue().encode("utf-8")
-
-def pretty_student_profile(student: Dict[str, Any], certs: List[Dict[str, Any]], dept_name: Optional[str], mentor_name: Optional[str]) -> str:
-    """Build a readable profile text block."""
-    lines = []
-    lines.append("📌 STUDENT PROFILE")
-    lines.append("-" * 40)
-    lines.append(f"Name         : {student.get('first_name','')} {student.get('last_name','')}")
-    lines.append(f"Roll Number  : {student.get('roll_number','')}")
-    lines.append(f"Batch        : {student.get('batch_year','')}")
-    lines.append(f"Semester     : {student.get('current_semester','')}")
-    lines.append(f"Department   : {dept_name or 'N/A'}")
-    lines.append(f"Mentor       : {mentor_name or 'N/A'}")
-    lines.append(f"Activity     : {student.get('activity_score', 'Not available')}")
-    lines.append(f"Certificates : {len(certs) if certs is not None else 'N/A'}")
-    lines.append("")
-    lines.append("Certificates (top 50):")
-    if certs:
-        for c in certs[:50]:
-            title = c.get("title", "Untitled")
-            status = c.get("status", "")
-            created = c.get("created_at")
-            if isinstance(created, datetime):
-                created = created.strftime("%Y-%m-%d")
-            lines.append(f"- {title} [{status}] ({created})")
-    else:
-        lines.append("- No certificates recorded.")
-    return "\n".join(lines)
-
-# ---------------------------------------------------------------------
-# Session initialization
-# ---------------------------------------------------------------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.user = None  # {"username": "...", "mentor_id": int}
-    st.session_state.messages = []
-    st.session_state.memory = {}  # key -> list of values
-    st.session_state.mentees = []
-    st.session_state.loading_warning_shown = False
-
-# ---------------------------------------------------------------------
-# Authentication: Try GET /api/me first, otherwise show simulated login
-# ---------------------------------------------------------------------
-def call_api_me(session_cookies: Optional[Dict[str, str]] = None, timeout: int = 5) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    """
-    Call GET {BASE_API_URL}/api/me to retrieve {"username": "...", "mentor_id": ...}
-    Returns (json, error_string)
-    """
-    url = f"{BASE_API_URL.rstrip('/')}/api/me"
-    try:
-        # If cookies provided, pass them; else rely on default requests session
-        if session_cookies:
-            resp = requests.get(url, cookies=session_cookies, timeout=timeout)
-        else:
-            resp = requests.get(url, timeout=timeout)
-        if resp.status_code != 200:
-            return None, f"API returned status {resp.status_code}"
-        data = resp.json()
-        # Validate shape
-        if not isinstance(data, dict) or "username" not in data or "mentor_id" not in data:
-            return None, "API returned unexpected payload (expecting username & mentor_id)"
-        return data, None
-    except Exception as e:
-        return None, str(e)
-
-def perform_login_via_api_or_simulated():
-    """
-    Attempt to login automatically using /api/me.
-    If that fails, expose simulated login box (username only).
-    """
-    st.sidebar.header("Login (Dynamic / Simulated)")
-    st.sidebar.write("Preferred: log in via web portal (session cookie). Fallback: simulated login.")
-
-    # 1) Try API /api/me if user hasn't explicitly chosen simulated login
-    use_simulated = st.sidebar.checkbox("Use simulated login instead of API", value=False)
-
-    if not use_simulated:
-        # Attempt to call API - we won't pass cookies unless provided by user.
-        # Provide an input area where user may paste session cookie if needed.
-        cookie_input = st.sidebar.text_input("Optional: session cookie string (e.g. sessionid=...)", value="", help="If your Django site uses a session cookie, paste it here to let Streamlit call /api/me.")
-        cookies = None
-        if cookie_input:
-            # parse cookie string "k1=v1; k2=v2"
-            try:
-                parts = [p.strip() for p in cookie_input.split(";") if p.strip()]
-                cookies = {}
-                for p in parts:
-                    if "=" in p:
-                        kk, vv = p.split("=", 1)
-                        cookies[kk.strip()] = vv.strip()
-            except Exception:
-                cookies = None
-
-        if st.sidebar.button("Login via API (/api/me)"):
-            st.sidebar.info("Attempting /api/me ...")
-            data, err = call_api_me(session_cookies=cookies)
-            if err:
-                st.sidebar.error(f"/api/me failed: {err}")
-                st.sidebar.warning("You can use simulated login or provide correct cookie.")
-                audit("api_me_failed", None, {"error": err})
-            else:
-                # Success -> set session user
-                st.session_state.logged_in = True
-                st.session_state.user = {"username": data["username"], "mentor_id": int(data["mentor_id"])}
-                st.session_state.messages = []
-                st.session_state.memory = {}
-                st.success(f"Logged in as {data['username']} (mentor id: {data['mentor_id']}) via API")
-                audit("login_api", st.session_state.user)
-                # Load mentees immediately
-                load_mentees_for_session()
-
-    # 2) Simulated login fallback
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("Simulated login (fallback)")
-    sim_user = st.sidebar.text_input("Mentor username (e.g., mentor5)", value="", key="sim_user")
-    if st.sidebar.button("Simulated login"):
-        # attempt to discover mentor_id from DB using username fuzzy search
-        # We'll attempt to find by 'mentor' in faculty table via db_utils; if not available, require static mapping
-        # Try a DB lookup for faculty by username (safe wrapper)
-        # Because db_utils may not provide direct user lookup, we simply ask the user to enter mentor ID if not resolvable.
-        # Ask the user for mentor id if not known
-        suggested_mid = None
+def safe_get_mentees(mentor_id: int) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """Return (mentees, error) using DB if available else sample data."""
+    if not mentor_id:
+        return [], None
+    if DB_AVAILABLE:
         try:
-            # Try to find mentees for small candidate mentor ids 1..1000 to guess? (not safe)
-            # Instead ask for mentor id prompt below
-            pass
+            rows = get_mentees(mentor_id)
+            return rows or [], None
+        except Exception as e:
+            return [], str(e)
+    else:
+        # filter sample
+        out = [s for s in SAMPLE_STUDENTS if s.get("mentor_id") == mentor_id]
+        return out, None
+
+def safe_find_students(q: str, limit: int = 200) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    if DB_AVAILABLE:
+        try:
+            rows = find_students_by_query(q, limit=limit)
+            return rows or [], None
+        except Exception as e:
+            return [], str(e)
+    else:
+        ql = (q or "").lower()
+        rows = []
+        for s in SAMPLE_STUDENTS:
+            if ql in (s.get("roll_number") or "").lower() or ql in (s.get("first_name","").lower() + " " + s.get("last_name","").lower()):
+                rows.append(s)
+        return rows, None
+
+def safe_get_certs(sid: int) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    if DB_AVAILABLE:
+        try:
+            rows = get_certificates_for_student(sid)
+            return rows or [], None
+        except Exception as e:
+            return [], str(e)
+    else:
+        return SAMPLE_CERTIFICATES.get(sid, []), None
+
+def safe_count_certs(sid: int) -> Tuple[int, Optional[str]]:
+    if DB_AVAILABLE:
+        try:
+            cnt = count_certificates(sid)
+            return cnt, None
+        except Exception as e:
+            return 0, str(e)
+    else:
+        return len(SAMPLE_CERTIFICATES.get(sid, [])), None
+
+def safe_get_student_by_id(sid: int) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    if DB_AVAILABLE:
+        try:
+            s = get_student_by_id(sid)
+            return s, None
+        except Exception as e:
+            return None, str(e)
+    else:
+        for s in SAMPLE_STUDENTS:
+            if s.get("id") == sid:
+                return s, None
+        return None, None
+
+def safe_get_department(dept_id: int) -> Optional[Dict[str, Any]]:
+    if DB_AVAILABLE:
+        try:
+            return get_department_by_id(dept_id)
         except Exception:
-            pass
-
-        # Ask for mentor id via sidebar
-        mid_input = st.sidebar.text_input("Enter mentor id (required for simulated login)", value="", key="sim_mid")
-        if mid_input:
-            try:
-                mid = int(mid_input)
-                st.session_state.logged_in = True
-                st.session_state.user = {"username": sim_user or f"sim_{mid}", "mentor_id": mid}
-                st.session_state.messages = []
-                st.session_state.memory = {}
-                st.success(f"Simulated login as {st.session_state.user['username']} (mentor id: {mid})")
-                audit("login_simulated", st.session_state.user)
-                load_mentees_for_session()
-            except Exception:
-                st.sidebar.error("Invalid mentor id. Must be integer.")
-        else:
-            st.sidebar.info("Enter mentor id to complete simulated login.")
-
-def load_mentees_for_session():
-    """Load mentees for current mentor into session state (safe)."""
-    if not st.session_state.logged_in or not st.session_state.user:
-        return
-    mid = st.session_state.user.get("mentor_id")
-    if mid is None:
-        st.sidebar.warning("Mentor id not available.")
-        return
-    mentees, err = safe_db_call(get_mentees, mid)
-    if err:
-        st.sidebar.error(f"DB error loading mentees: {err}")
-        st.session_state.mentees = []
-        audit("load_mentees_error", st.session_state.user, {"error": err})
+            return None
     else:
-        st.session_state.mentees = mentees or []
-        audit("load_mentees", st.session_state.user, {"count": len(st.session_state.mentees)})
+        return SAMPLE_DEPARTMENTS.get(dept_id)
 
-# Run login flow (on page load)
-perform_login_via_api_or_simulated()
+# -------------------------
+# MEMORY ENGINE (session-scoped)
+# -------------------------
+# Requirements from you:
+# - When the mentor states "k1 is topper" it should "store" that fact in memory for session
+# - The first time it stores, reply should be short "Noted: 'k1' → 'topper'."
+# - Later when asked "who is k1" it should return the stored fact string
+# - Memory should be session-scoped (stored in st.session_state.memory)
+#
+# Implementation:
+# - st.session_state.memory is a dict: key -> list of values (history). Key normalized to lower case.
+# - memory_store(key, value) appends and returns None (silently); the calling code will produce the user-visible confirmation message
+# - memory_lookup(phrase) tries exact key match; if none, uses fuzzy matching across keys and across values
+#
+# NOTE: memory is not persisted beyond the login session (you asked for that behavior)
+def memory_init():
+    if "memory" not in st.session_state:
+        st.session_state.memory = {}
 
-# If logged in, show logout and user info in sidebar
-if st.session_state.logged_in and st.session_state.user:
-    with st.sidebar:
-        st.markdown("---")
-        st.markdown(f"**User:** {st.session_state.user['username']}")
-        st.markdown(f"**Role:** Mentor")
-        st.markdown(f"**Mentor ID:** {st.session_state.user['mentor_id']}")
-        if st.button("Logout"):
-            # clear chat file for safety and reset session
-            try:
-                f = chat_file_for_user(st.session_state.user)
-                if os.path.exists(f):
-                    os.remove(f)
-            except Exception:
-                pass
-            audit("logout", st.session_state.user)
-            st.session_state.logged_in = False
-            st.session_state.user = None
-            st.session_state.messages = []
-            st.session_state.memory = {}
-            st.session_state.mentees = []
-            st.experimental_rerun()
-
-# If still not logged in, stop UI here
-if not st.session_state.logged_in or not st.session_state.user:
-    st.info("Please login via the sidebar (API or simulated) to continue.")
-    st.stop()
-
-# ---------------------------------------------------------------------
-# After login: display mentees in sidebar and main header
-# ---------------------------------------------------------------------
-user = st.session_state.user
-mentor_id = user["mentor_id"]
-
-st.sidebar.subheader("Your mentees")
-if not st.session_state.get("mentees"):
-    # attempt load once more
-    load_mentees_for_session()
-
-mentees = st.session_state.get("mentees", [])
-if mentees:
-    for m in mentees[:PAGE_SIZE]:
-        st.sidebar.write(f"- {m.get('first_name','')} {m.get('last_name','')} ({m.get('roll_number','')})")
-    if len(mentees) > PAGE_SIZE:
-        st.sidebar.write(f"... and {len(mentees)-PAGE_SIZE} more")
-else:
-    st.sidebar.write("No mentees found or DB unavailable.")
-
-# ---------------------------------------------------------------------
-# Chat UI: render history
-# ---------------------------------------------------------------------
-st.subheader("Mentor Chat")
-for m in st.session_state.messages:
-    with st.chat_message(m.get("role", "user")):
-        st.markdown(m.get("content", ""))
-
-# Input box
-query = st.chat_input("Ask about your mentees... (examples: 'profile of 23881A66F5', 'certificates of 23881A66F5', 'who is topper')")
-
-# ---------------------------------------------------------------------
-# Memory engine (session only)
-# ---------------------------------------------------------------------
-def memory_store(key: str, value: str) -> None:
-    """
-    Store a memory entry.
-    - key: subject (lowercased)
-    - value: short description string
-    Behavior:
-      - If key exists, append to list
-      - Reply to user with 'k.' after storing (per your request)
-    """
-    if not key or not value:
+def memory_store(key: str, value: str):
+    key_n = (key or "").strip().lower()
+    val = (value or "").strip()
+    if not key_n or not val:
         return
-    k = key.strip().lower()
-    v = value.strip()
-    lst = st.session_state.memory.get(k)
-    if lst is None:
-        st.session_state.memory[k] = [v]
+    if key_n in st.session_state.memory:
+        st.session_state.memory[key_n].append(val)
     else:
-        lst.append(v)
-        st.session_state.memory[k] = lst
+        st.session_state.memory[key_n] = [val]
 
 def memory_lookup(phrase: str) -> Optional[str]:
     """
-    Lookup logic (priority):
-    1) exact key match returns the latest stored value
-    2) fuzzy key match (token_set/partial) returns latest value if score >= 60
-    3) fuzzy match inside values returns key (subject) if phrase maps to a value
-    4) fuzzy over chat messages returns matched message content
+    Attempt to return a remembered sentence for 'phrase'.
+    Behavior:
+     - exact key match -> return latest value (string)
+     - fuzzy key match (partial) -> return latest value if score >= threshold
+     - fuzzy value search -> return latest key (so 'who is topper' returns 'k1' if value matched)
+     - fallback: search recent chat messages for a text containing phrase
     """
+    from rapidfuzz import fuzz
+
     if not phrase:
         return None
-    phrase = phrase.strip().lower()
+    phrase_l = phrase.strip().lower()
 
-    # 1) exact key
-    if phrase in st.session_state.memory:
-        val = st.session_state.memory[phrase]
-        return val[-1] if isinstance(val, list) else val
+    # 1) exact key match
+    if phrase_l in st.session_state.memory:
+        vals = st.session_state.memory[phrase_l]
+        return vals[-1] if vals else None
 
-    # 2) fuzzy key match
+    # 2) fuzzy match on keys
     best_key = None
     best_score = 0
-    # rapidfuzz import (local) via shared_utils fuzzy_best_candidate uses rapidfuzz; but to avoid circular use, import here
-    try:
-        from rapidfuzz import fuzz
-        for k, vals in st.session_state.memory.items():
-            score = fuzz.partial_ratio(phrase, k)
-            if score > best_score:
-                best_score = score
-                best_key = k
-        if best_key and best_score >= 60:
-            vals = st.session_state.memory.get(best_key)
-            return vals[-1] if isinstance(vals, list) else vals
-    except Exception:
-        # if rapidfuzz not present, fallback to substring match
-        for k, vals in st.session_state.memory.items():
-            if phrase in k:
-                vals = st.session_state.memory[k]
-                return vals[-1] if isinstance(vals, list) else vals
+    for k in st.session_state.memory.keys():
+        score = fuzz.partial_ratio(phrase_l, k)
+        if score > best_score:
+            best_score = score
+            best_key = k
+    if best_key and best_score >= 65:
+        vals = st.session_state.memory.get(best_key)
+        return vals[-1] if vals else None
 
-    # 3) fuzzy inside values -> return subject (key)
-    try:
-        from rapidfuzz import fuzz
-        for k, vals in st.session_state.memory.items():
-            for v in (vals if isinstance(vals, list) else [vals]):
-                score = fuzz.partial_ratio(phrase, v.lower())
-                if score >= 70:
-                    # When the phrase matches a value, return the subject (key)
-                    return k
-    except Exception:
-        for k, vals in st.session_state.memory.items():
-            for v in (vals if isinstance(vals, list) else [vals]):
-                if phrase in str(v).lower():
-                    return k
+    # 3) fuzzy match inside values -> return the SUBJECT (key)
+    for k, vals in st.session_state.memory.items():
+        for v in vals:
+            score = fuzz.partial_ratio(phrase_l, v.lower())
+            if score >= 65:
+                # return the subject (key)
+                return k
 
-    # 4) search recent chat messages
-    for msg in reversed(st.session_state.messages):
-        txt = msg.get("content", "").lower()
-        if phrase in txt:
+    # 4) fallback: search recent messages
+    for msg in reversed(st.session_state.messages[-60:]):
+        text = msg.get("content", "").lower()
+        if phrase_l in text:
             return msg.get("content")
 
     return None
 
-# ---------------------------------------------------------------------
-# Helper: student resolution (search + fuzzy) tailored for mentor scope
-# ---------------------------------------------------------------------
-def find_student_within_scope(meta: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+# -------------------------
+# Helper: pretty profile text builder
+# -------------------------
+def pretty_student_profile(student: Dict[str, Any], certs: List[Dict[str, Any]], dept_name: Optional[str], mentor_name: Optional[str], cert_count: Optional[int], activity_score: Optional[Any]) -> str:
+    lines = []
+    lines.append("📌 STUDENT PROFILE")
+    lines.append("-" * 36)
+    lines.append(f"Name        : {student.get('first_name','')} {student.get('last_name','')}")
+    lines.append(f"Roll Number : {student.get('roll_number','')}")
+    lines.append(f"Batch       : {student.get('batch_year','')}")
+    lines.append(f"Semester    : {student.get('current_semester','')}")
+    lines.append(f"Department  : {dept_name or 'N/A'}")
+    lines.append(f"Mentor      : {mentor_name or 'N/A'}")
+    lines.append(f"Activity    : {activity_score if activity_score is not None else 'Not available'}")
+    lines.append(f"Certificates: {cert_count if cert_count is not None else 'N/A'}")
+    lines.append("")
+    lines.append("Certificates (top 50):")
+    if not certs:
+        lines.append("- No certificates recorded.")
+    else:
+        for c in certs[:50]:
+            title = c.get("title", "Untitled")
+            org = c.get("issuing_organization", "")
+            status = c.get("status", "")
+            created = c.get("created_at")
+            if isinstance(created, datetime):
+                created = created.strftime("%Y-%m-%d")
+            lines.append(f"- {title} [{status}] ({org}) - {created}")
+    return "\n".join(lines)
+
+# -------------------------
+# UI / Main App
+# -------------------------
+st.set_page_config(page_title=APP_TITLE, layout="wide")
+st.title(APP_TITLE)
+st.write("MentorAssist — Mentor Chat. Use the sidebar to login and test features. This app supports simulated login (default) and optional API login (configure `USE_API = True`).")
+
+# Sidebar: login
+st.sidebar.header("Login / Session")
+st.sidebar.info("By default the app uses simulated users (no API). To use your Django APIs set USE_API = True and configure the top API_* constants.")
+
+# We offer two login modes:
+# 1) Simulated login (default) - no password checks (local demo)
+# 2) Optional API login (when USE_API True) - calls /auth/jwt/create/ and GET /api/me/
+#
+# The UI shows both controls but only one path executes depending on the USE_API flag.
+
+# Initialize session defaults
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user" not in st.session_state:
+    st.session_state.user = None
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+memory_init()
+
+# Buttons to clear chat file or show audit logs
+with st.sidebar.expander("Admin & Debug"):
+    st.sidebar.write(f"DB available: {'Yes' if DB_AVAILABLE else 'No'}")
+    st.sidebar.write(f"LLM available: {'Yes' if AI_AVAILABLE else 'No'}")
+    if st.sidebar.button("Show audit log (last 50 lines)"):
+        out = []
+        try:
+            with open(AUDIT_LOG, "r", encoding="utf-8") as f:
+                lines = f.readlines()[-50:]
+                for l in lines:
+                    try:
+                        out.append(json.loads(l))
+                    except Exception:
+                        out.append({"raw": l})
+        except Exception as e:
+            st.sidebar.error(f"Failed reading audit: {e}")
+            out = []
+        st.sidebar.write(out)
+    if st.sidebar.button("Clear session (logout)"):
+        # Delete user chat file to start fresh
+        if st.session_state.user:
+            try:
+                fpath = chat_file_for_user(st.session_state.user)
+                if os.path.exists(fpath):
+                    os.remove(fpath)
+            except Exception:
+                pass
+        st.session_state.logged_in = False
+        st.session_state.user = None
+        st.session_state.messages = []
+        st.session_state.memory = {}
+        st.sidebar.success("Session cleared. Please login again.")
+        st.rerun()
+
+# Display login options
+login_mode = st.sidebar.radio("Login mode", options=["Simulated (default)", "API (use your Django endpoints)"])
+
+# Filling the login inputs
+if login_mode == "API (use your Django endpoints)":
+    st.sidebar.caption("API mode: will POST to auth/jwt/create/ then GET /api/vmeg/auth/users/me/. Set USE_API=True in the file to enable behavior.")
+    api_user = st.sidebar.text_input("API username", key="api_user")
+    api_pass = st.sidebar.text_input("API password", type="password", key="api_pass")
+    if st.sidebar.button("Login via API"):
+        if not USE_API:
+            st.sidebar.warning("API mode not enabled in the script (USE_API=False). Edit the file or set USE_API=True in top config to enable.")
+        else:
+            # Attempt API login
+            try:
+                import requests
+                resp = requests.post(API_AUTH_JWT_CREATE, json={"username": api_user, "password": api_pass}, timeout=8)
+                if resp.status_code == 200:
+                    token = resp.json().get("access") or resp.json().get("token") or resp.json().get("access_token")
+                    if not token:
+                        st.sidebar.error("Auth response did not include token. Check your endpoint.")
+                    else:
+                        headers = {"Authorization": f"Bearer {token}"}
+                        me = requests.get(API_ME, headers=headers, timeout=8)
+                        if me.status_code == 200:
+                            profile = me.json()
+                            # expected response: {"username": "...", "mentor_id": 5}
+                            mentor_id = profile.get("mentor_id")
+                            username = profile.get("username") or api_user
+                            st.sidebar.success(f"Logged in as {username} (mentor_id={mentor_id})")
+                            st.session_state.logged_in = True
+                            st.session_state.user = {"username": username, "mentor_id": mentor_id, "role": "mentor", "api_token": token}
+                            st.session_state.messages = []
+                            st.session_state.memory = {}
+                            audit_log("api_login", st.session_state.user, {"via": "api"})
+                            st.rerun()
+                        else:
+                            st.sidebar.error(f"/me failed: {me.status_code} {me.text}")
+                else:
+                    st.sidebar.error(f"Auth failed: {resp.status_code} {resp.text}")
+            except Exception as e:
+                st.sidebar.error(f"API login error: {e}")
+else:
+    # Simulated login UI
+    st.sidebar.caption("Simulated login for demo/testing (no external API calls).")
+    sim_user = st.sidebar.selectbox("Simulated user", options=list(SIMULATED_USERS.keys()), index=0)
+    sim_pass = st.sidebar.text_input("Password (simulated)", type="password", key="sim_pass")
+    if st.sidebar.button("Login (simulated)"):
+        user = SIMULATED_USERS.get(sim_user)
+        if user and sim_pass == user.get("password"):
+            # Delete prior chat file to start fresh each login (as requested)
+            try:
+                f = chat_file_for_user(user)
+                if os.path.exists(f):
+                    os.remove(f)
+            except Exception:
+                pass
+            st.session_state.logged_in = True
+            st.session_state.user = user.copy()
+            st.session_state.messages = []
+            st.session_state.memory = {}
+            st.sidebar.success(f"Simulated login: {user['username']}")
+            audit_log("simulated_login", st.session_state.user, {"sim_user": sim_user})
+            st.rerun()
+        else:
+            st.sidebar.error("Invalid simulated credentials")
+
+# If not logged in, stop (user must login to use chat)
+if not st.session_state.logged_in or not st.session_state.user:
+    st.info("Please login from the sidebar to use MentorAssist.")
+    st.stop()
+
+# At this point user is logged in
+user = st.session_state.user
+username = user.get("username")
+role = user.get("role", "mentor")
+mentor_id = user.get("mentor_id")  # may be None for admin
+
+# Show top bar info and quick actions
+st.sidebar.markdown("---")
+st.sidebar.write(f"**User:** {username}")
+st.sidebar.write(f"**Role:** {role}")
+st.sidebar.write(f"**Mentor ID:** {mentor_id}")
+st.sidebar.markdown("---")
+
+# Load mentees for mentor (safe)
+mentees_list, mentees_err = safe_get_mentees(mentor_id) if mentor_id else ([], None)
+if mentees_err:
+    st.sidebar.error(f"Failed to load mentees: {mentees_err}")
+
+st.sidebar.subheader("Your mentees")
+if mentees_list:
+    for m in mentees_list:
+        st.sidebar.write(f"- {m.get('first_name','')} {m.get('last_name','')} ({m.get('roll_number','')})")
+else:
+    st.sidebar.write("No mentees found (or DB unavailable).")
+
+# Chat display area
+st.subheader("Mentor Chat")
+for msg in st.session_state.messages:
+    role_msg = msg.get("role", "user")
+    with st.chat_message(role_msg):
+        st.markdown(msg.get("content", ""))
+
+# Input box (main)
+query = st.chat_input("Ask about your mentees... (examples: 'profile of 23881A66F5', 'certificates of 23881A66F5', 'who is topper', 'mentees')")
+
+# Helper: resolve student by meta (roll or name)
+def resolve_student_from_meta(meta: Dict[str, Any], prefer_mentees: bool = True) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
-    Resolve a student using meta (roll_query or name_query).
-    Ensures that resolved student is in the mentor's mentee list; otherwise returns access denied.
-    Returns (student, error_string).
+    Returns (student, error_message)
+    - meta contains roll_query or name_query
+    - prefer_mentees: if True, prefer matching among the logged-in mentor's mentees
     """
     q = meta.get("roll_query") or meta.get("name_query")
     if not q:
-        return None, "No search term provided."
+        return None, "No search term given."
 
-    # 1) Try DB-wide search
-    found, err = safe_db_call(find_students_by_query, q, 200)
+    found, err = safe_find_students(q, limit=200)
     if err:
-        # DB error -> try local mentee fuzzy fallback
-        found = []
-    else:
-        found = found or []
+        return None, f"DB error: {err}"
 
+    # prefer exact/suffix roll match
     q_low = q.lower()
-
-    # prefer exact roll match in DB results
-    for f in found:
-        rn = (f.get("roll_number") or "").lower()
-        if rn == q_low or rn.endswith(q_low) or q_low in rn:
-            # verify mentee scope
-            if is_student_in_mentor_scope(f):
+    if found:
+        for f in found:
+            rn = (f.get("roll_number") or "").lower()
+            if rn == q_low or rn.endswith(q_low) or q_low in rn:
+                # enforce mentor scoping: mentors can only see their mentees
+                if role == "mentor" and f.get("mentor_id") != mentor_id:
+                    return None, "Access denied — not your mentee."
                 return f, None
-            else:
-                return None, "Access denied - not your mentee."
 
-    # try fuzzy among found limited to mentees
-    if found:
-        mentee_ids = {m["id"] for m in mentees if m.get("id")}
-        mentee_candidates = [f for f in found if f.get("id") in mentee_ids]
-        if mentee_candidates:
-            cand, score = fuzzy_best_candidate(q, mentee_candidates, key=lambda x: f"{x.get('first_name','')} {x.get('last_name','')} {x.get('roll_number','')}", score_cutoff=50)
-            if cand:
-                return cand, None
-            # else return first mentee candidate
-            return mentee_candidates[0], None
+        # prefer among mentees if requested
+        if prefer_mentees and mentees_list:
+            mentee_ids = {m["id"] for m in mentees_list}
+            mentee_candidates = [f for f in found if f.get("id") in mentee_ids]
+            if mentee_candidates:
+                cand, score = fuzzy_best_candidate(q, mentee_candidates, key=lambda x: f"{x.get('first_name','')} {x.get('last_name','')} {x.get('roll_number','')}", score_cutoff=55)
+                if cand:
+                    return cand, None
+                return mentee_candidates[0], None
 
-    # 2) DB found something but not mentee -> check if direct found entry is not mentee
-    if found:
-        # try to pick best fuzzy among found and ensure it's a mentee
-        cand, score = fuzzy_best_candidate(q, found, key=lambda x: f"{x.get('first_name','')} {x.get('last_name','')} {x.get('roll_number','')}", score_cutoff=60)
+        # fuzzy among found
+        cand, score = fuzzy_best_candidate(q, found, key=lambda x: f"{x.get('first_name','')} {x.get('last_name','')} {x.get('roll_number','')}", score_cutoff=50)
         if cand:
-            if is_student_in_mentor_scope(cand):
-                return cand, None
-            else:
-                return None, "Access denied - not your mentee."
+            if role == "mentor" and cand.get("mentor_id") != mentor_id:
+                return None, "Access denied — not your mentee."
+            return cand, None
+        return found[0], None
 
-    # 3) If DB returned nothing or mentor wants to search within own mentees, fuzzy-match against mentees in session
-    if mentees:
-        cand, score = fuzzy_best_candidate(q, mentees, key=lambda x: f"{x.get('first_name','')} {x.get('last_name','')} {x.get('roll_number','')}", score_cutoff=50)
+    # no DB results: try fuzzy among mentees
+    if mentees_list:
+        cand, score = fuzzy_best_candidate(q, mentees_list, key=lambda x: f"{x.get('first_name','')} {x.get('last_name','')} {x.get('roll_number','')}", score_cutoff=50)
         if cand:
             return cand, None
 
     return None, None
 
-def is_student_in_mentor_scope(student_rec: Dict[str, Any]) -> bool:
-    """Return True if student_rec belongs to current mentor."""
-    if not student_rec:
-        return False
-    sid = student_rec.get("mentor_id")
-    # some student records have mentor_id; compare with session mentor_id
-    return sid == mentor_id
-
-# ---------------------------------------------------------------------
-# Main processing: handle query
-# ---------------------------------------------------------------------
+# Process query
 if query:
-    # Save user message (persist per-mentor)
+    # Save user message
     st.session_state.messages.append({"role": "user", "content": query})
-    save_chat_history_for(st.session_state.user, st.session_state.messages)
+    save_chat_history_for(user, st.session_state.messages)
+    audit_log("user_query", user, {"query": query})
 
+    # parse intent
     intent, meta = parse_intent(query)
     reply = ""
-    audit_details = {"query": query, "intent": intent}
 
+    # Handle common intents
     try:
         # Greeting
         if intent == "greeting":
             reply = "Hello! 👋 How can I help you with your mentees today?"
-            audit("greeting", st.session_state.user, audit_details)
 
         # Mentees list
         elif intent == "mentees":
-            if not mentees:
-                reply = "You have no mentees (DB unavailable or none assigned)."
+            if not mentees_list:
+                reply = "You have no mentees (or DB is unavailable)."
             else:
-                lines = [f"{m.get('first_name','')} {m.get('last_name','')} — Roll: {m.get('roll_number','')}" for m in mentees]
+                lines = [f"{m.get('first_name','')} {m.get('last_name','')} — Roll: {m.get('roll_number','')}" for m in mentees_list]
                 reply = "\n\n".join(lines)
-            audit("mentees_list", st.session_state.user, {"count": len(mentees)})
 
         # Count mentees
         elif intent == "count_mentees":
-            reply = f"You have {len(mentees)} mentees."
-            audit("count_mentees", st.session_state.user, {"count": len(mentees)})
+            reply = f"You have {len(mentees_list)} mentees."
 
-        # Name lookup
+        # Name lookup (name of roll or name query)
         elif intent == "name_lookup":
-            student, err = find_student_within_scope(meta)
+            student, err = resolve_student_from_meta(meta)
             if err:
                 reply = err
-                audit("name_lookup_error", st.session_state.user, {"error": err})
             elif not student:
                 reply = "No student found."
-                audit("name_lookup_not_found", st.session_state.user, {"meta": meta})
             else:
                 reply = f"Name: {student.get('first_name','')} {student.get('last_name','')} — Roll: {student.get('roll_number','')}"
-                audit("name_lookup", st.session_state.user, {"student_id": student.get("id")})
 
         # Activity score
         elif intent == "activity_score":
-            student, err = find_student_within_scope(meta)
+            student, err = resolve_student_from_meta(meta)
             if err:
                 reply = err
-                audit("activity_error", st.session_state.user, {"error": err})
             elif not student:
                 reply = "No student found."
             else:
-                # Activity score might be in student record or computed; try DB field first
-                act = student.get("activity_score")
-                if act is None:
-                    # maybe compute from certificates (example fallback) or mark as Not available
-                    # Here, we will attempt to compute a simple activity heuristic: number of certificates
-                    try:
-                        certs, c_err = safe_db_call(get_certificates_for_student, student.get("id"))
-                        if c_err:
-                            reply = f"Activity score of {student.get('roll_number','')} is Not available"
-                        else:
-                            cnt = len(certs or [])
-                            # heuristic: activity_score = min(100, cnt * 5)
-                            activity_score_val = min(100, cnt * 5)
-                            reply = f"Activity score of {student.get('roll_number','')} is {activity_score_val} (computed from {cnt} certificates)"
-                    except Exception:
-                        reply = f"Activity score of {student.get('roll_number','')} is Not available"
-                else:
-                    reply = f"Activity score of {student.get('roll_number','')} is {act}"
-                audit("activity_lookup", st.session_state.user, {"student_id": student.get("id")})
+                score = student.get("activity_score")
+                reply = f"Activity score of {student.get('roll_number','')} is {score if score is not None else 'Not available'}."
 
-        # Certificates or count
-        elif intent in ("certificates", "count_certificates"):
-            student, err = find_student_within_scope(meta)
+        # Certificates or certificate count
+        elif intent in ("certificates", "count_certificates", "summarize_certificates"):
+            student, err = resolve_student_from_meta(meta)
             if err:
                 reply = err
             elif not student:
                 reply = "No student found."
             else:
                 sid = student.get("id")
-                if intent == "count_certificates":
-                    cnt, cnt_err = safe_db_call(count_certificates, sid)
-                    if cnt_err:
-                        reply = f"Error counting certificates: {cnt_err}"
-                    else:
-                        reply = f"{student.get('first_name','Student')} has {cnt} certificates."
-                    audit("count_certificates", st.session_state.user, {"student_id": sid, "count": cnt})
+                certs, c_err = safe_get_certs(sid)
+                if c_err:
+                    reply = f"DB error fetching certificates: {c_err}"
                 else:
-                    certs, c_err = safe_db_call(get_certificates_for_student, sid)
-                    if c_err:
-                        reply = f"Error fetching certificates: {c_err}"
+                    if intent == "count_certificates":
+                        cnt, _ = safe_count_certs(sid)
+                        reply = f"{student.get('first_name','Student')} has {cnt} certificates."
+                    elif intent == "summarize_certificates":
+                        # produce a short summary (non-LLM)
+                        titles = [c.get("title","Untitled") for c in certs]
+                        cnt = len(titles)
+                        if cnt == 0:
+                            reply = "No certificates recorded."
+                        else:
+                            top3 = titles[:3]
+                            reply = f"{student.get('first_name','Student')} has {cnt} certificates. Top examples: " + ", ".join(top3)
                     else:
-                        certs = certs or []
                         if not certs:
                             reply = f"No certificates found for {student.get('first_name','Student')}."
-                            # optional: LLM guidance
                             if AI_AVAILABLE:
                                 guidance_prompt = (
                                     f"Student {student.get('first_name','Student')} (roll {student.get('roll_number')}) has 0 certificates. "
-                                    "Provide 2 concise, actionable recommendations the mentor can give the student to start building credentials."
+                                    "As an expert mentor, provide 2 short actionable steps to start building credentials."
                                 )
-                                guidance = call_gemini_short(guidance_prompt)
-                                if guidance and not guidance.lower().startswith("ai error"):
-                                    reply += f"\n\nGuidance:\n{guidance}"
+                                try:
+                                    guidance = call_gemini_short(guidance_prompt)
+                                    if guidance and not guidance.lower().startswith("ai error"):
+                                        reply += f"\n\nGuidance:\n{guidance}"
+                                except Exception:
+                                    pass
                         else:
-                            # If AI enabled, ask for short summary + guidance
-                            if AI_AVAILABLE:
-                                payload = {"student": {"id": student.get("id"), "name": f"{student.get('first_name','')} {student.get('last_name','')}", "roll": student.get("roll_number")}, "certificates": certs[:50]}
-                                summary_prompt = (
-                                    "You are MentorAssist. Using ONLY the JSON below, produce:\n"
-                                    "1) a one-line summary of the student's certificates,\n"
-                                    "2) two concise mentor action items (each on its own line).\n\n"
-                                    + json.dumps(payload, indent=2)
-                                )
-                                llm_resp = call_gemini_short(summary_prompt)
-                                if llm_resp and not llm_resp.lower().startswith("ai error"):
-                                    reply = llm_resp
-                                else:
-                                    titles = [c.get("title") or "Untitled" for c in certs]
-                                    reply = "Certificates:\n- " + "\n- ".join(titles[:50])
-                            else:
-                                titles = [c.get("title") or "Untitled" for c in certs]
-                                reply = "Certificates:\n- " + "\n- ".join(titles[:50])
-                    audit("list_certificates", st.session_state.user, {"student_id": sid, "count": len(certs) if certs else 0})
+                            titles = [c.get("title","Untitled") for c in certs]
+                            reply = "Certificates:\n- " + "\n- ".join(titles[:50])
 
-        # Profile lookup (admin-only originally; here mentors can get profile of their mentees)
+        # Profile lookup (admin-style)
         elif intent == "profile":
-            student, err = find_student_within_scope(meta)
+            # admin can lookup anyone, mentor only their mentees
+            student, err = resolve_student_from_meta(meta, prefer_mentees=True)
             if err:
                 reply = err
             elif not student:
                 reply = "No student found."
             else:
-                # fetch department and mentor name
-                try:
-                    dept = get_department_by_id(student.get("department_id"))
-                except Exception:
-                    dept = None
+                sid = student.get("id")
+                certs, _ = safe_get_certs(sid)
+                cnt, _ = safe_count_certs(sid)
+                dept = safe_get_department(student.get("department_id"))
                 dept_name = dept.get("name") if dept else None
-
-                # mentor name: use DB (get_conn)
                 mentor_name = None
                 try:
-                    mid = student.get("mentor_id")
-                    if mid:
-                        with get_conn() as conn:
-                            with conn.cursor() as cur:
-                                cur.execute("SELECT u.first_name, u.last_name, u.email FROM vmeg.profiles_facultyprofile f LEFT JOIN vmeg.authentication_user u ON f.user_id = u.id WHERE f.id = %s", (mid,))
-                                row = cur.fetchone()
-                                if row:
-                                    mentor_name = f"{row[0]} {row[1]} — {row[2]}"
-                                else:
-                                    mentor_name = f"Mentor ID {mid}"
+                    if student.get("mentor_id"):
+                        mrec, merr = safe_get_student_by_id(student.get("mentor_id"))
+                        # most likely mentor lookup via faculty table; we'll fallback to ID text
+                        mentor_name = f"Mentor ID {student.get('mentor_id')}"
                 except Exception:
                     mentor_name = f"Mentor ID {student.get('mentor_id')}"
-
-                certs, c_err = safe_db_call(get_certificates_for_student, student.get("id"))
-                certs = certs or []
-                profile_text = pretty_student_profile(student, certs, dept_name, mentor_name)
-
-                # LLM summary & guidance if available
+                activity = student.get("activity_score", "Not available")
+                profile_text = pretty_student_profile(student, certs or [], dept_name, mentor_name, cnt, activity)
+                # LLM assistance (optional)
                 if AI_AVAILABLE:
-                    payload = {"student": {"id": student.get("id"), "name": f"{student.get('first_name','')} {student.get('last_name','')}", "roll": student.get("roll_number")}, "certificates": certs[:50]}
-                    llm_prompt = (
-                        "You are MentorAssist. Using ONLY the JSON below, produce:\n"
-                        "1) a one-line summary of the student's certificate profile,\n"
-                        "2) two concise mentor action items (each on its own line).\n\n"
-                        + json.dumps(payload, indent=2)
-                    )
+                    payload = {
+                        "student": {
+                            "id": student.get("id"),
+                            "name": f"{student.get('first_name','')} {student.get('last_name','')}",
+                            "roll": student.get("roll_number"),
+                            "batch": student.get("batch_year"),
+                            "semester": student.get("current_semester"),
+                            "department": dept_name,
+                            "activity_score": activity,
+                            "certificate_count": cnt,
+                        },
+                        "certificates": certs[:50] if certs else [],
+                    }
                     try:
+                        llm_prompt = (
+                            "You are AdminAssist. Using ONLY the JSON below, produce:\n"
+                            "1) a one-line summary of the student's certificate profile,\n"
+                            "2) two concise mentor action items (each on its own line).\n\n"
+                            + json.dumps(payload, indent=2)
+                        )
                         llm_resp = call_gemini_short(llm_prompt)
                         if llm_resp and not llm_resp.lower().startswith("ai error"):
                             profile_text += "\n\nLLM SUMMARY & GUIDANCE:\n" + llm_resp
                     except Exception:
-                        pass
-
+                        profile_text += "\n\n(LLM summary failed.)"
                 reply = profile_text
-                audit("profile", st.session_state.user, {"student_id": student.get("id")})
 
         # Memory lookup (who is X)
         elif intent == "memory_lookup":
@@ -701,173 +781,94 @@ if query:
             else:
                 mem = memory_lookup(phrase)
                 if mem:
-                    # If memory_lookup returned a key (subject) or a message, echo it.
-                    # We return it directly; earlier you asked that retrieval should occur when asked again.
-                    # Example: "who is topper" -> returns stored fact string.
                     reply = f"I found this earlier in our chat: \"{mem}\""
-                    audit("memory_hit", st.session_state.user, {"phrase": phrase})
                 else:
-                    # as fallback, try to resolve as student
-                    student, err = find_student_within_scope({"roll_query": phrase, "name_query": phrase})
-                    if student:
-                        reply = f"{student.get('first_name','')} {student.get('last_name','')} — Roll: {student.get('roll_number','')}"
-                        audit("memory_student", st.session_state.user, {"phrase": phrase, "student_id": student.get("id")})
+                    # try to resolve as student
+                    s, err = resolve_student_from_meta({"roll_query": phrase, "name_query": phrase})
+                    if s:
+                        reply = f"{s.get('first_name','')} {s.get('last_name','')} — Roll: {s.get('roll_number','')}"
                     else:
                         reply = "I couldn't find that phrase in our conversation or mentee list."
-                        audit("memory_miss", st.session_state.user, {"phrase": phrase})
 
-        # Topper / top performer query (custom intent added in shared_utils)
-        elif intent == "topper_query":
-            # We'll interpret "topper" as highest activity score among mentees (if available)
-            try:
-                # gather mentees and their activity
-                if not mentees:
-                    reply = "No mentees available to evaluate."
-                else:
-                    best = None
-                    best_score = -1
-                    for m in mentees:
-                        # attempt to use activity_score field, else compute from certs
-                        sc = m.get("activity_score")
-                        if sc is None:
-                            # try compute from certs
-                            try:
-                                certs, c_err = safe_db_call(get_certificates_for_student, m.get("id"))
-                                if not c_err:
-                                    cnt = len(certs or [])
-                                    sc = min(100, cnt * 5)
-                                else:
-                                    sc = 0
-                            except Exception:
-                                sc = 0
-                        try:
-                            sc_num = int(sc) if sc is not None else 0
-                        except Exception:
-                            sc_num = 0
-                        if sc_num > best_score:
-                            best_score = sc_num
-                            best = m
-                    if best:
-                        reply = f"Top performer: {best.get('first_name','')} {best.get('last_name','')} — Roll: {best.get('roll_number','')} (score: {best_score})"
-                    else:
-                        reply = "Couldn't determine topper."
-            except Exception as e:
-                reply = f"Error determining topper: {e}"
-            audit("topper_query", st.session_state.user, {"result": reply})
-
-        # Simple fact storage: detect "<subject> is <description>" pattern and store
+        # If none of the above: attempt to store simple fact "X is Y" or fallback to LLM-limited
         else:
-            lower_q = query.strip()
-            stored_any = False
-            try:
-                m = re.match(r"^\s*([A-Za-z0-9\-\_\s\.]+?)\s+is\s+(.+)$", lower_q, re.IGNORECASE)
-                if m:
-                    subj = m.group(1).strip()
-                    desc = m.group(2).strip()
-                    # store subject -> desc in memory
-                    memory_store(subj, desc)
-                    # Per your instruction, when storing memory the bot should not say "I will remember" but reply succinctly.
-                    reply = "k."
-                    stored_any = True
-                    audit("memory_store", st.session_state.user, {"subject": subj, "desc": desc})
-            except Exception:
-                stored_any = False
-
-            if not stored_any:
-                # Unknown intent -> restricted LLM fallback or friendly guidance
+            stored = False
+            # store simple sentences of form "<subject> is <predicate>"
+            m = re.match(r"^\s*([A-Za-z0-9\-_\. ]+?)\s+is\s+(.+)$", query.strip(), flags=re.IGNORECASE)
+            if m:
+                subj = m.group(1).strip()
+                desc = m.group(2).strip()
+                # Store in memory under normalized subject key
+                memory_store(subj, desc)
+                # Per your requirement: short confirmation (no long 'I'll remember' line)
+                reply = f"Noted: '{subj}' → '{desc}'."
+                stored = True
+                audit_log("memory_store", user, {"subject": subj, "desc": desc})
+            if not stored:
+                # LLM fallback limited to student list and recent chat (if AI available)
+                allowed_small = [{"id": m.get("id"), "name": f"{m.get('first_name','')} {m.get('last_name','')}", "roll": m.get("roll_number","")} for m in (mentees_list or [])]
+                recent_chat = st.session_state.messages[-16:]
+                prompt = (
+                    "You are MentorAssist AI. Use ONLY the facts provided below about students and the recent conversation to answer. "
+                    "If the user asks about a student not in the provided student list, reply 'Access Denied'. "
+                    "Answer concisely and do NOT hallucinate.\n\n"
+                    f"STUDENTS:\n{json.dumps(allowed_small, indent=2)}\n\n"
+                    f"RECENT_CHAT:\n{json.dumps(recent_chat, indent=2)}\n\n"
+                    f"USER QUESTION:\n{query}\n\nAnswer:"
+                )
                 if AI_AVAILABLE:
-                    # Provide a safe context: mentee list and recent chat
-                    small_students = [{"id": m.get("id"), "name": f"{m.get('first_name','')} {m.get('last_name','')}", "roll": m.get("roll_number","")} for m in mentees]
-                    recent_chat = st.session_state.messages[-12:]
-                    prompt = (
-                        "You are MentorAssist AI. Use ONLY the facts provided below about students and recent chat to answer the user's question. "
-                        "If the user asks about a student not in the provided student list, reply 'Access Denied'. "
-                        "Answer concisely and do NOT hallucinate.\n\n"
-                        f"STUDENTS:\n{json.dumps(small_students, indent=2)}\n\n"
-                        f"RECENT_CHAT:\n{json.dumps(recent_chat, indent=2)}\n\n"
-                        f"USER QUESTION:\n{query}\n\nAnswer:"
-                    )
                     try:
-                        llm_resp = call_gemini_short(prompt)
-                        if llm_resp and not llm_resp.lower().startswith("ai error"):
-                            reply = llm_resp
+                        llm_reply = call_gemini_short(prompt)
+                        if llm_reply and not llm_reply.lower().startswith("ai error"):
+                            reply = llm_reply
                         else:
-                            reply = "I can answer: name, activity score, certificates, certificate count, mentees, mentee count, profile, topper. (LLM fallback failed.)"
-                    except Exception as e:
-                        reply = f"LLM error: {e}"
+                            reply = "I can answer: name, activity score, certificates, certificate count, mentees, mentee count. (LLM fallback failed.)"
+                    except Exception:
+                        reply = "I can answer: name, activity score, certificates, certificate count, mentees, mentee count. (LLM error.)"
                 else:
-                    reply = "I can answer: name, activity score, certificates, certificate count, mentees, mentee count, profile, topper. (LLM not configured.)"
-                audit("fallback", st.session_state.user, {"query": query})
+                    reply = "I can answer: name, activity score, certificates, certificate count, mentees, mentee count. (LLM not configured.)"
 
-    except Exception as outer_e:
-        reply = f"Internal error processing query: {outer_e}"
-        audit("error_processing", st.session_state.user, {"error": str(outer_e), "trace": traceback.format_exc()})
+    except Exception as ex:
+        reply = f"Internal error while processing query: {ex}"
+        # include traceback in audit log
+        audit_log("error_processing_query", user, {"query": query, "error": str(ex), "trace": traceback.format_exc()})
 
-    # Persist assistant reply (both in-memory and on-disk)
+    # persist reply and save chat
     st.session_state.messages.append({"role": "assistant", "content": reply})
-    save_chat_history_for(st.session_state.user, st.session_state.messages)
+    save_chat_history_for(user, st.session_state.messages)
+    audit_log("assistant_reply", user, {"reply_preview": reply[:200]})
 
-    # Display assistant reply
+    # show reply
     with st.chat_message("assistant"):
         st.markdown(reply)
 
-# ---------------------------------------------------------------------
-# Footer utilities: export / quick tests / help panel
-# ---------------------------------------------------------------------
+# EOF of conversation handling
+# Additional notes & helper commands shown in the UI bottom area
+
 st.markdown("---")
-st.subheader("Mentor Utilities & Quick Tests")
+st.subheader("Quick testing & help")
+st.markdown(
+    """
+Try these example queries (copy-paste into the chat box):
 
-c1, c2, c3 = st.columns(3)
+- `hi`
+- `mentees`
+- `how many mentees`
+- `profile of 23881A66F5`
+- `certificates of 23881A66F5`
+- `how many certificates does 23881A66F5 have`
+- `activity score of 23881A66F5`
+- `who is topper`
+- `k1 is topper`  (stores memory)
+- `who is k1`    (retrieves memory)
 
-with c1:
-    if st.button("Show recent chat (this session)"):
-        if st.session_state.messages:
-            st.write(st.session_state.messages[-30:])
-        else:
-            st.info("No chat yet.")
-
-with c2:
-    if st.button("Download chat JSON"):
-        try:
-            fpath = chat_file_for_user(st.session_state.user)
-            if os.path.exists(fpath):
-                with open(fpath, "r", encoding="utf-8") as fh:
-                    data = fh.read()
-                st.download_button("Download chat JSON", data=data, file_name=os.path.basename(fpath))
-            else:
-                # Save current messages then download
-                save_chat_history_for(st.session_state.user, st.session_state.messages)
-                with open(chat_file_for_user(st.session_state.user), "r", encoding="utf-8") as fh:
-                    data = fh.read()
-                st.download_button("Download chat JSON", data=data, file_name=os.path.basename(chat_file_for_user(st.session_state.user)))
-        except Exception as e:
-            st.error(f"Failed to download chat JSON: {e}")
-
-with c3:
-    if st.button("Clear session chat (delete file)"):
-        try:
-            fp = chat_file_for_user(st.session_state.user)
-            if os.path.exists(fp):
-                os.remove(fp)
-            st.session_state.messages = []
-            save_chat_history_for(st.session_state.user, st.session_state.messages)
-            st.success("Session chat cleared.")
-            audit("clear_session_chat", st.session_state.user)
-        except Exception as e:
-            st.error(f"Failed to clear chat: {e}")
-
-st.markdown("### Quick test commands (copy-paste into the chat input)")
-st.code(
-    "\n".join([
-        "profile of 23881A66F5",
-        "certificates of 23881A66F5",
-        "how many certificates does 23881A66F5 have",
-        "activity score of 23881A66F5",
-        "mentees",
-        "who is topper",
-        "k1 is topper",
-        "who is topper"
-    ])
+Notes:
+- Mentors only see their mentees. Admin role can access full profiles.
+- Memory is session-scoped and cleared on logout.
+- If you want to enable API login, set USE_API = True and configure API_* constants at top.
+"""
 )
 
-st.caption("End of MentorAssist. If you want admin features or a version that uses simulated login only, ask and I will provide that file as well.")
+
+
+# End of file

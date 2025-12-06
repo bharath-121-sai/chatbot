@@ -1,0 +1,24 @@
+{"ts": "2025-12-06T18:53:58.574102", "user": "mentor5", "action": "simulated_login", "details": {"sim_user": "mentor5"}}
+{"ts": "2025-12-06T18:55:25.210675", "user": "mentor5", "action": "simulated_login", "details": {"sim_user": "mentor5"}}
+{"ts": "2025-12-06T18:56:20.673597", "user": "mentor5", "action": "simulated_login", "details": {"sim_user": "mentor5"}}
+{"ts": "2025-12-06T18:56:27.907736", "user": "mentor5", "action": "user_query", "details": {"query": "hi"}}
+{"ts": "2025-12-06T18:56:27.914094", "user": "mentor5", "action": "assistant_reply", "details": {"reply_preview": "Hello! \ud83d\udc4b How can I help you with your mentees today?"}}
+{"ts": "2025-12-06T18:56:34.692378", "user": "mentor5", "action": "user_query", "details": {"query": "how many mentees\n"}}
+{"ts": "2025-12-06T18:56:34.700806", "user": "mentor5", "action": "assistant_reply", "details": {"reply_preview": "John Doe \u2014 Roll: 23881A66K1\n\nJane Smith \u2014 Roll: 23881A66J2\n\nBob Brown \u2014 Roll: 23881A6617\n\nAlice Johnson \u2014 Roll: 23881A66F5"}}
+{"ts": "2025-12-06T18:56:41.353586", "user": "mentor5", "action": "user_query", "details": {"query": "profile of 23881A66F5\n"}}
+{"ts": "2025-12-06T18:56:42.572934", "user": "mentor5", "action": "assistant_reply", "details": {"reply_preview": "\ud83d\udccc STUDENT PROFILE\n------------------------------------\nName        : Alice Johnson\nRoll Number : 23881A66F5\nBatch       : 2024\nSemester    : 1\nDepartment  : Mechanical Engineering\nMentor      : Mentor"}}
+{"ts": "2025-12-06T18:56:53.413453", "user": "mentor5", "action": "user_query", "details": {"query": "certificates of 23881A66F5\n"}}
+{"ts": "2025-12-06T18:56:53.985099", "user": "mentor5", "action": "assistant_reply", "details": {"reply_preview": "Certificates:\n- NPTEL C programming\n- Coursera\n- bharath sai\n- DSA in python\n- DSA in python\n- nptel test\n- nptel test\n- New Scraping check\n- New Scraping check\n- NPTEL main\n- test NPTEL\n- test 2\n- te"}}
+{"ts": "2025-12-06T18:57:04.750903", "user": "mentor5", "action": "user_query", "details": {"query": "activity score of 23881A66F5\n"}}
+{"ts": "2025-12-06T18:57:05.035134", "user": "mentor5", "action": "assistant_reply", "details": {"reply_preview": "Activity score of 23881A66F5 is Not available."}}
+{"ts": "2025-12-06T18:57:17.545080", "user": "mentor5", "action": "user_query", "details": {"query": "how many certificates does 23881A66F5 have\n"}}
+{"ts": "2025-12-06T18:57:18.242566", "user": "mentor5", "action": "assistant_reply", "details": {"reply_preview": "Alice has 25 certificates."}}
+{"ts": "2025-12-06T18:57:28.689197", "user": "mentor5", "action": "user_query", "details": {"query": "who is topper\n"}}
+{"ts": "2025-12-06T18:57:28.696894", "user": "mentor5", "action": "assistant_reply", "details": {"reply_preview": "I found this earlier in our chat: \"who is topper\n\""}}
+{"ts": "2025-12-06T18:57:42.417060", "user": "mentor5", "action": "user_query", "details": {"query": "k1 is topper"}}
+{"ts": "2025-12-06T18:57:42.424632", "user": "mentor5", "action": "memory_store", "details": {"subject": "k1", "desc": "topper"}}
+{"ts": "2025-12-06T18:57:42.430654", "user": "mentor5", "action": "assistant_reply", "details": {"reply_preview": "Noted: 'k1' \u2192 'topper'."}}
+{"ts": "2025-12-06T18:57:49.349527", "user": "mentor5", "action": "user_query", "details": {"query": "who is k1"}}
+{"ts": "2025-12-06T18:57:49.355670", "user": "mentor5", "action": "assistant_reply", "details": {"reply_preview": "I found this earlier in our chat: \"topper\""}}
+{"ts": "2025-12-06T18:57:54.227280", "user": "mentor5", "action": "user_query", "details": {"query": "who is k1"}}
+{"ts": "2025-12-06T18:57:54.231199", "user": "mentor5", "action": "assistant_reply", "details": {"reply_preview": "I found this earlier in our chat: \"topper\""}}
