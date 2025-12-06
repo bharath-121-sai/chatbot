@@ -1,0 +1,178 @@
+[
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello Admin! How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "bharathsai is good boy"
+  },
+  {
+    "role": "assistant",
+    "content": "Noted: 'bharathsai' \u2192 'good boy'. I will remember this."
+  },
+  {
+    "role": "user",
+    "content": "who  is good boy"
+  },
+  {
+    "role": "assistant",
+    "content": "Noted: 'who' \u2192 'good boy'. I will remember this."
+  },
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello Admin! How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "bharathsai is topper"
+  },
+  {
+    "role": "assistant",
+    "content": "Noted: 'bharathsai' \u2192 'topper'. I will remember this."
+  },
+  {
+    "role": "user",
+    "content": "who is topper"
+  },
+  {
+    "role": "assistant",
+    "content": "I found this earlier in the conversation: \"bharathsai is topper\""
+  },
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello Admin! How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "list all  the students"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: student profile, name lookup, activity score, certificates, certificate count, list mentors, mentees, departments, show all students. You can also tell me short facts like 'bob is topper' and ask 'who is topper'."
+  },
+  {
+    "role": "user",
+    "content": "profile of 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "\ud83d\udccc STUDENT PROFILE\n------------------------------------------------\nName         : Alice Johnson\nRoll Number  : 23881A66F5\nBatch        : 2024\nSemester     : 1\nDepartment   : Mechanical Engineering\nMentor       : Dr.Isaac Newton \u2014 faculty4@example.com\nActivity     : Not available\nCertificates : 24\n\nCertificates (top 50):\n- Coursera [PENDING] (2025-12-06 10:23:35)\n- bharath sai [PENDING] (2025-12-06 10:21:11)\n- DSA in python [PENDING] (2025-12-05 22:59:45)\n- DSA in python [PENDING] (2025-12-05 22:47:36)\n- nptel test [PENDING] (2025-12-05 22:36:58)\n- nptel test [PENDING] (2025-12-05 22:33:05)\n- New Scraping check [PENDING] (2025-12-05 22:32:31)\n- New Scraping check [PENDING] (2025-12-05 22:18:10)\n- NPTEL main [PENDING] (2025-12-05 21:49:50)\n- test NPTEL [PENDING] (2025-12-05 21:42:09)\n- test 2 [PENDING] (2025-12-05 21:05:43)\n- test [PENDING] (2025-12-05 21:00:57)\n- test [PENDING] (2025-12-05 20:55:29)\n- test [PENDING] (2025-12-05 20:52:09)\n- test [PENDING] (2025-12-05 20:46:11)\n- test [PENDING] (2025-12-05 20:43:57)\n- test certificate verifcation [PENDING] (2025-12-05 19:34:21)\n- Anvesh Certificate [PENDING] (2025-12-05 18:17:00)\n- Django Certificate [PENDING] (2025-12-05 09:01:52)\n- Django Certificate [PENDING] (2025-12-05 08:32:36)\n- Django Certificate [PENDING] (2025-12-05 08:31:50)\n- Python Django [PENDING] (2025-12-05 08:29:45)\n- Django Certification [AI_VERIFIED] (2025-12-02 08:12:09)\n- python certificate [PENDING] (2025-12-02 08:12:09)"
+  },
+  {
+    "role": "user",
+    "content": "list the mentees of mentor5"
+  },
+  {
+    "role": "assistant",
+    "content": "John Doe \u2014 Roll: 23881A66K1 \u2014 Batch: 2024\n\nJane Smith \u2014 Roll: 23881A66J2 \u2014 Batch: 2024\n\nBob Brown \u2014 Roll: 23881A6617 \u2014 Batch: 2024\n\nAlice Johnson \u2014 Roll: 23881A66F5 \u2014 Batch: 2024"
+  },
+  {
+    "role": "user",
+    "content": "list all the department names"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: student profile, name lookup, activity score, certificates, certificate count, list mentors, mentees, departments, show all students. You can also tell me short facts like 'bob is topper' and ask 'who is topper'."
+  },
+  {
+    "role": "user",
+    "content": "list all mentors"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: student profile, name lookup, activity score, certificates, certificate count, list mentors, mentees, departments, show all students. You can also tell me short facts like 'bob is topper' and ask 'who is topper'."
+  },
+  {
+    "role": "user",
+    "content": "list mentors"
+  },
+  {
+    "role": "assistant",
+    "content": "Mentor ID: 1 \u2014 Anvesh Reddy \u2014 anvesh@mail.co\n\nMentor ID: 2 \u2014 Dr.Alan Turing \u2014 faculty1@example.com\n\nMentor ID: 3 \u2014 Dr.Grace Hopper \u2014 faculty2@example.com\n\nMentor ID: 4 \u2014 Dr.Nikola Tesla \u2014 faculty3@example.com\n\nMentor ID: 5 \u2014 Dr.Isaac Newton \u2014 faculty4@example.com\n\nMentor ID: 6 \u2014 Dr.Marie Curie \u2014 faculty5@example.com\n\nMentor ID: 7 \u2014 John Doe \u2014 john@gmail.com\n\nMentor ID: 8 \u2014 Alex jah \u2014 alex@gmail.com\n\nMentor ID: 9 \u2014 Bharath Sai \u2014 bharathsai@gmail.com\n\nMentor ID: 10 \u2014 Dr.AR Tulu \u2014 anvfaculty12@example.com"
+  },
+  {
+    "role": "user",
+    "content": "departments names"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: student profile, name lookup, activity score, certificates, certificate count, list mentors, mentees, departments, show all students. You can also tell me short facts like 'bob is topper' and ask 'who is topper'."
+  },
+  {
+    "role": "user",
+    "content": "departments"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: student profile, name lookup, activity score, certificates, certificate count, list mentors, mentees, departments, show all students. You can also tell me short facts like 'bob is topper' and ask 'who is topper'."
+  },
+  {
+    "role": "user",
+    "content": "show all students"
+  },
+  {
+    "role": "assistant",
+    "content": "Showing students 1 to 8 of 8:\n\nJohn Doe \u2014 Roll: 23881A66K1 \u2014 Batch: 2024\n\nJane Smith \u2014 Roll: 23881A66J2 \u2014 Batch: 2024\n\nAlice Johnson \u2014 Roll: 23881A66F5 \u2014 Batch: 2024\n\nBob Brown \u2014 Roll: 23881A6617 \u2014 Batch: 2024\n\nCharlie Davis \u2014 Roll: 23881A66F4 \u2014 Batch: 2024\n\n  \u2014 Roll: RESUME_TEST \u2014 Batch: 2024\n\nAzq Byq \u2014 Roll: 23881A661434 \u2014 Batch: 2024\n\nAnvesh D \u2014 Roll: 23881A6717 \u2014 Batch: 2024"
+  },
+  {
+    "role": "user",
+    "content": "show profile of roll number 22BD1A05A1"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: student profile, name lookup, activity score, certificates, certificate count, list mentors, mentees, departments, show all students. You can also tell me short facts like 'bob is topper' and ask 'who is topper'."
+  },
+  {
+    "role": "user",
+    "content": "show profile of roll number 23881A66K1"
+  },
+  {
+    "role": "assistant",
+    "content": "I can answer: student profile, name lookup, activity score, certificates, certificate count, list mentors, mentees, departments, show all students. You can also tell me short facts like 'bob is topper' and ask 'who is topper'."
+  },
+  {
+    "role": "user",
+    "content": "how many certificates 23881A66F5"
+  },
+  {
+    "role": "assistant",
+    "content": "Alice has 25 certificates."
+  },
+  {
+    "role": "user",
+    "content": "profile of 23881A66K1"
+  },
+  {
+    "role": "assistant",
+    "content": "\ud83d\udccc STUDENT PROFILE\n------------------------------------------------\nName         : John Doe\nRoll Number  : 23881A66K1\nBatch        : 2024\nSemester     : 1\nDepartment   : Mechanical Engineering\nMentor       : Dr.Isaac Newton \u2014 faculty4@example.com\nActivity     : Not available\nCertificates : 0\n\nCertificates (top 50):\n- No certificates recorded."
+  },
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello Admin! How can I assist you today?"
+  },
+  {
+    "role": "user",
+    "content": "list departments"
+  },
+  {
+    "role": "assistant",
+    "content": "1 \u2014 Electronics & Communication (ECE)\n\n2 \u2014 Computer Science Engineering (CSE)\n\n3 \u2014 Mechanical Engineering (MECH)\n\n4 \u2014 Electrical Engineering (EEE)\n\n5 \u2014 Information Technology (IT)"
+  }
+]

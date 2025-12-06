@@ -1,0 +1,27 @@
+{"ts": "2025-12-06T17:55:57.657257", "user": "mentor5", "action": "login", "details": {}}
+{"ts": "2025-12-06T17:57:53.824469", "user": "mentor5", "action": "login", "details": {}}
+{"ts": "2025-12-06T17:58:00.518458", "user": "mentor5", "action": "user_query", "details": {"q": "hi"}}
+{"ts": "2025-12-06T17:58:00.549701", "user": "mentor5", "action": "assistant_reply", "details": {"intent": "greeting"}}
+{"ts": "2025-12-06T17:58:09.750748", "user": "mentor5", "action": "user_query", "details": {"q": "who are my mentees"}}
+{"ts": "2025-12-06T17:58:09.785172", "user": "mentor5", "action": "assistant_reply", "details": {"intent": "mentees"}}
+{"ts": "2025-12-06T17:58:31.564006", "user": "mentor5", "action": "user_query", "details": {"q": "profile of my mentee rollno is 23881A66F5"}}
+{"ts": "2025-12-06T17:58:31.575736", "user": "mentor5", "action": "memory_store", "details": {"subject": "profile of my mentee rollno", "value": "23881A66F5"}}
+{"ts": "2025-12-06T17:58:31.605505", "user": "mentor5", "action": "assistant_reply", "details": {"intent": "profile"}}
+{"ts": "2025-12-06T17:58:47.076498", "user": "mentor5", "action": "user_query", "details": {"q": "profile of 23881A66F5"}}
+{"ts": "2025-12-06T17:58:47.092038", "user": "mentor5", "action": "assistant_reply", "details": {"intent": "profile"}}
+{"ts": "2025-12-06T17:59:47.508104", "user": "mentor5", "action": "user_query", "details": {"q": "profile of 23881A66K1\n"}}
+{"ts": "2025-12-06T17:59:47.538185", "user": "mentor5", "action": "assistant_reply", "details": {"intent": "profile"}}
+{"ts": "2025-12-06T17:59:58.736896", "user": "mentor5", "action": "user_query", "details": {"q": "profile of 23881A66F5\n"}}
+{"ts": "2025-12-06T17:59:58.819562", "user": "mentor5", "action": "assistant_reply", "details": {"intent": "profile"}}
+{"ts": "2025-12-06T18:00:03.971835", "user": "mentor5", "action": "user_query", "details": {"q": "hi"}}
+{"ts": "2025-12-06T18:00:03.987163", "user": "mentor5", "action": "assistant_reply", "details": {"intent": "greeting"}}
+{"ts": "2025-12-06T18:00:29.662578", "user": "mentor5", "action": "user_query", "details": {"q": "certifiactes of 23881A66F5"}}
+{"ts": "2025-12-06T18:00:29.671131", "user": "mentor5", "action": "assistant_reply", "details": {"intent": "unknown"}}
+{"ts": "2025-12-06T18:01:01.891204", "user": "mentor5", "action": "user_query", "details": {"q": "caetificates of 23881A66F5"}}
+{"ts": "2025-12-06T18:01:01.901245", "user": "mentor5", "action": "assistant_reply", "details": {"intent": "unknown"}}
+{"ts": "2025-12-06T18:30:25.050132", "action": "login_simulated", "user": "mentor5", "details": {}}
+{"ts": "2025-12-06T18:30:25.395477", "action": "load_mentees", "user": "mentor5", "details": {"count": 4}}
+{"ts": "2025-12-06T18:30:36.669786", "action": "profile", "user": "mentor5", "details": {"student_id": 8}}
+{"ts": "2025-12-06T18:39:11.151930", "action": "api_me_failed", "user": null, "details": {"error": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/me (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001D0BADF4C20>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))"}}
+{"ts": "2025-12-06T18:39:27.142604", "action": "login_simulated", "user": "mentor5", "details": {}}
+{"ts": "2025-12-06T18:39:27.476114", "action": "load_mentees", "user": "mentor5", "details": {"count": 4}}
